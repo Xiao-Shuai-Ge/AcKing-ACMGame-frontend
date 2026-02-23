@@ -1,13 +1,30 @@
 <template>
   <div class="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
     <div class="mt-8">
-      <el-button 
-        type="primary" 
-        size="large" 
-        class="!text-2xl !px-12 !py-8 !rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+      <button 
+        class="
+          group relative flex items-center justify-center gap-4
+          px-20 py-10
+          text-3xl font-bold text-white tracking-widest
+          bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600
+          dark:from-blue-600 dark:via-indigo-600 dark:to-purple-700
+          bg-[length:200%_auto] hover:bg-right
+          rounded-3xl shadow-xl hover:shadow-2xl hover:shadow-blue-500/30 dark:hover:shadow-blue-900/40
+          transform transition-all duration-500 ease-out
+          hover:scale-110 hover:-translate-y-2
+          overflow-hidden
+          focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800
+        "
       >
-        单人模式
-      </el-button>
+        <el-icon class="text-5xl transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">
+          <User />
+        </el-icon>
+        
+        <span class="relative z-10 drop-shadow-md">单人模式</span>
+        
+        <!-- Animated background shine effect -->
+        <div class="absolute top-0 -left-[100%] w-full h-full bg-gradient-to-r from-transparent via-white/25 to-transparent skew-x-12 group-hover:animate-shine"></div>
+      </button>
     </div>
   </div>
 </template>
