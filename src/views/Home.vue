@@ -1,11 +1,13 @@
 <template>
-  <div class="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-    <h1 class="text-4xl font-bold text-blue-600 mb-4">Welcome to AcKing ACM Game</h1>
-    <p class="text-lg text-gray-700">Vue 3 + Vite + Tailwind CSS + Vue Router</p>
+  <div class="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
     <div class="mt-8">
-      <button class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-300">
-        Get Started
-      </button>
+      <el-button 
+        type="primary" 
+        size="large" 
+        class="!text-2xl !px-12 !py-8 !rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+      >
+        单人模式
+      </el-button>
     </div>
   </div>
 </template>
