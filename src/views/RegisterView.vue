@@ -17,7 +17,7 @@
               type="text"
               required
               class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-              placeholder="用户名"
+              placeholder="Codeforces用户名（请保持一致）"
               v-model="form.username"
             />
           </div>
@@ -33,6 +33,29 @@
               placeholder="邮箱地址"
               v-model="form.email"
             />
+          </div>
+          <div class="flex">
+            <div class="flex-1">
+              <label for="email-code" class="sr-only">验证码</label>
+              <input
+                id="email-code"
+                name="email-code"
+                type="text"
+                required
+                class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                placeholder="邮箱验证码"
+                v-model="form.code"
+              />
+            </div>
+            <button
+              type="button"
+              :disabled="sendingCode || codeCountdown > 0"
+              class="ml-2 w-28 flex-shrink-0 inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+              @click="handleSendCode"
+            >
+              <span v-if="codeCountdown === 0">发送验证码</span>
+              <span v-else>{{ codeCountdown }}s</span>
+            </button>
           </div>
           <div>
             <label for="password" class="sr-only">密码</label>
@@ -83,9 +106,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { register } from '../api/auth'
+import { register, sendCode } from '../api/auth'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -93,16 +116,66 @@ const router = useRouter()
 const form = ref({
   username: '',
   email: '',
+  code: '',
   password: '',
   avatar_url: '', // optional
   rating: 0 // optional
 })
 const confirmPassword = ref('')
 const loading = ref(false)
+const sendingCode = ref(false)
+const codeCountdown = ref(0)
+let codeTimer: number | undefined
+
+const startCountdown = () => {
+  codeCountdown.value = 60
+  if (codeTimer) {
+    clearInterval(codeTimer)
+  }
+  codeTimer = window.setInterval(() => {
+    codeCountdown.value -= 1
+    if (codeCountdown.value <= 0) {
+      codeCountdown.value = 0
+      if (codeTimer) {
+        clearInterval(codeTimer)
+      }
+    }
+  }, 1000)
+}
+
+const handleSendCode = async () => {
+  if (!form.value.email) {
+    ElMessage.error('请先输入邮箱')
+    return
+  }
+  if (codeCountdown.value > 0 || sendingCode.value) {
+    return
+  }
+  sendingCode.value = true
+  try {
+    await sendCode({ email: form.value.email })
+    ElMessage.success('验证码已发送')
+    startCountdown()
+  } catch (error: any) {
+    console.error(error)
+  } finally {
+    sendingCode.value = false
+  }
+}
+
+onBeforeUnmount(() => {
+  if (codeTimer) {
+    clearInterval(codeTimer)
+  }
+})
 
 const handleRegister = async () => {
   if (form.value.password !== confirmPassword.value) {
     ElMessage.error('两次输入的密码不一致')
+    return
+  }
+  if (!form.value.code) {
+    ElMessage.error('请输入邮箱验证码')
     return
   }
 

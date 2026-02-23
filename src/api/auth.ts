@@ -7,10 +7,23 @@ export interface LoginReq {
 
 export interface RegisterReq {
   email: string
+  code: string
   password: string
   username: string
   avatar_url?: string
   rating?: number
+}
+
+export interface SendCodeReq {
+  email: string
+}
+
+export const sendCode = (data: SendCodeReq) => {
+  return request<any, any>({
+    url: '/login/send-code',
+    method: 'post',
+    data,
+  })
 }
 
 export interface UserInfo {
