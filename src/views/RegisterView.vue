@@ -118,8 +118,6 @@ const form = ref({
   email: '',
   code: '',
   password: '',
-  avatar_url: '', // optional
-  rating: 0 // optional
 })
 const confirmPassword = ref('')
 const loading = ref(false)

@@ -20,6 +20,7 @@
           
           <div v-if="userStore.token" class="ml-4 flex items-center">
              <span class="text-gray-700 dark:text-gray-300 mr-2">{{ userStore.userInfo?.username }}</span>
+             <span :class="['mr-3 font-semibold', ratingClass]">Rating {{ ratingValue }}</span>
              <button @click="handleLogout" class="text-sm text-red-500 hover:text-red-700">退出</button>
           </div>
           <div v-else class="ml-4 flex space-x-2">
@@ -33,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useUserStore } from '../store/user'
 import { useRouter } from 'vue-router'
 import { Moon, Sunny } from '@element-plus/icons-vue'
@@ -41,6 +42,17 @@ import { Moon, Sunny } from '@element-plus/icons-vue'
 const userStore = useUserStore()
 const router = useRouter()
 const isDark = ref(false)
+const ratingValue = computed(() => userStore.userInfo?.rating ?? 0)
+const ratingClass = computed(() => {
+  const rating = ratingValue.value
+  if (rating >= 2400) return 'text-red-600'
+  if (rating >= 2100) return 'text-orange-500'
+  if (rating >= 1900) return 'text-purple-600'
+  if (rating >= 1600) return 'text-blue-600'
+  if (rating >= 1400) return 'text-cyan-600'
+  if (rating >= 1200) return 'text-green-600'
+  return 'text-gray-500'
+})
 
 const toggleDarkMode = () => {
   isDark.value = !isDark.value

@@ -10,8 +10,6 @@ export interface RegisterReq {
   code: string
   password: string
   username: string
-  avatar_url?: string
-  rating?: number
 }
 
 export interface SendCodeReq {
@@ -30,7 +28,6 @@ export interface UserInfo {
   id: string
   email: string
   username: string
-  avatar_url: string
   rating: number
 }
 
@@ -50,6 +47,32 @@ export const login = (data: LoginReq) => {
 export const register = (data: RegisterReq) => {
   return request<any, any>({
     url: '/login/register',
+    method: 'post',
+    data,
+  })
+}
+
+export interface GetProfileResp {
+  id: string
+  email: string
+  username: string
+  rating: number
+}
+
+export interface UpdateProfileReq {
+  username: string
+}
+
+export const getProfile = () => {
+  return request<any, GetProfileResp>({
+    url: '/common/profile',
+    method: 'get',
+  })
+}
+
+export const updateProfile = (data: UpdateProfileReq) => {
+  return request<any, any>({
+    url: '/common/profile',
     method: 'post',
     data,
   })
