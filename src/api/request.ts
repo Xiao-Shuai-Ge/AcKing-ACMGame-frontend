@@ -28,10 +28,20 @@ service.interceptors.response.use(
   (response) => {
     const res = response.data
     // 根据后端响应结构进行调整
-    if (res.code !== 20000) { // 假设 20000 表示成功
-        // 如果需要，可以处理特定的错误代码
-        ElMessage.error(res.message || '错误')
-        return Promise.reject(new Error(res.message || '错误'))
+    if (res.code !== 20000) {
+      // 处理 token 过期
+      if (res.code === -20000) {
+        ElMessage.error('登录已过期，请重新登录')
+        localStorage.removeItem('token')
+        localStorage.removeItem('userInfo')
+        // 使用 window.location 跳转以确保清除所有状态
+        window.location.href = '/login'
+        return Promise.reject(new Error(res.message || 'token expired'))
+      }
+      
+      // 如果需要，可以处理特定的错误代码
+      ElMessage.error(res.message || '错误')
+      return Promise.reject(new Error(res.message || '错误'))
     }
     return res.data
   },

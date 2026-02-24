@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { login as loginApi, type LoginReq, type UserInfo } from '../api/auth'
+import { login as loginApi, getProfile, type LoginReq, type UserInfo } from '../api/auth'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('token') || '')
@@ -8,16 +8,23 @@ export const useUserStore = defineStore('user', () => {
 
   const login = async (data: LoginReq) => {
     const res = await loginApi(data)
-    // Assuming the structure is { token: '...', user: { ... } }
-    // But my request interceptor returns res.data.
-    // If backend returns { code: 20000, data: { token: ..., user: ... } }
-    // Then res is { token: ..., user: ... }
     
     token.value = res.token
     userInfo.value = res.user
     
     localStorage.setItem('token', res.token)
     localStorage.setItem('userInfo', JSON.stringify(res.user))
+  }
+
+  const fetchUserInfo = async () => {
+    try {
+      const res = await getProfile()
+      userInfo.value = res
+      localStorage.setItem('userInfo', JSON.stringify(res))
+    } catch (error) {
+      console.error('Failed to fetch user info:', error)
+      // Optional: if fetch fails (e.g. 401), logout might happen automatically via interceptor
+    }
   }
 
   const logout = () => {
@@ -32,5 +39,6 @@ export const useUserStore = defineStore('user', () => {
     userInfo,
     login,
     logout,
+    fetchUserInfo,
   }
 })
