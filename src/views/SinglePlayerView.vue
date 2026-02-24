@@ -512,6 +512,7 @@ const connectWs = () => {
           if (room.value?.rating_after) {
             updateUserRating(room.value.rating_after)
           }
+          showSummary.value = true
         }
       } catch (error) {
         console.error('WS Error', error)
