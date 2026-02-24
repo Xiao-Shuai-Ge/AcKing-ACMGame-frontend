@@ -23,6 +23,11 @@ const router = createRouter({
       component: RegisterView,
     },
     {
+      path: '/user/:id',
+      name: 'user-profile',
+      component: () => import('../views/UserProfile.vue'),
+    },
+    {
       path: '/single-player/:roomId?',
       name: 'single-player',
       component: SinglePlayerView,

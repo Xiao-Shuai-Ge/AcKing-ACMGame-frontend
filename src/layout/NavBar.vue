@@ -18,9 +18,14 @@
             <el-icon v-else><Sunny /></el-icon>
           </button>
           
-          <div v-if="userStore.token" class="ml-4 flex items-center">
-             <span class="text-gray-700 dark:text-gray-300 mr-2">{{ userStore.userInfo?.username }}</span>
-             <span :class="['mr-3 font-semibold', ratingClass]">Rating {{ ratingValue }}</span>
+          <div v-if="userStore.token" class="ml-4 flex items-center space-x-4">
+             <router-link 
+               :to="`/user/${userStore.userInfo?.id}`"
+               class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium cursor-pointer"
+             >
+               {{ userStore.userInfo?.username }}
+             </router-link>
+             <span :class="['font-semibold', ratingClass]">Rating {{ ratingValue }}</span>
              <button @click="handleLogout" class="text-sm text-red-500 hover:text-red-700">退出</button>
           </div>
           <div v-else class="ml-4 flex space-x-2">

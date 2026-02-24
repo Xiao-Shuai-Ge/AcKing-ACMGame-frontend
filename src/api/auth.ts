@@ -24,6 +24,16 @@ export const sendCode = (data: SendCodeReq) => {
   })
 }
 
+export const getUserInfo = (userId: string) => {
+  return request<any, GetUserInfoResp>({
+    url: '/common/user-info',
+    method: 'get',
+    params: { user_id: userId },
+  })
+}
+
+export interface GetUserInfoResp extends UserInfo {}
+
 export interface UserInfo {
   id: string
   email: string
