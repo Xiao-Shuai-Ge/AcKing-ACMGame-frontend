@@ -1,5 +1,11 @@
 import request from './request'
 
+export interface RoomSubmissionRecord {
+  submission_id: number
+  verdict: string
+  submit_time: number
+}
+
 export interface SinglePlayerRoomInfo {
   room_id: string
   user_id: string
@@ -13,6 +19,7 @@ export interface SinglePlayerRoomInfo {
   rating_after: number
   created_at: string
   end_time: number
+  submissions?: RoomSubmissionRecord[]
 }
 
 export interface SinglePlayerCreateResp {

@@ -88,14 +88,14 @@
             <TransitionGroup name="list">
               <div
                 v-for="sub in submissions"
-                :key="sub.id"
+                :key="sub.submission_id"
                 class="group relative p-4 rounded-xl border-2 transition-all duration-300 cursor-default overflow-hidden"
                 :class="[
                   sub.isRead 
                     ? 'bg-gray-50 dark:bg-gray-700/30 border-transparent opacity-75 hover:opacity-100' 
                     : 'bg-white dark:bg-gray-800 border-indigo-100 dark:border-indigo-900/50 shadow-md translate-x-0 scale-100 z-10'
                 ]"
-                @mouseenter="markAsRead(sub.id)"
+                @mouseenter="markAsRead(sub.submission_id)"
               >
                 <!-- Unread Indicator -->
                 <div 
@@ -110,12 +110,12 @@
                   >
                     {{ sub.verdict }}
                   </span>
-                  <span class="text-xs font-mono text-gray-400">{{ formatTime(sub.time) }}</span>
+                  <span class="text-xs font-mono text-gray-400">{{ formatTime(sub.submit_time * 1000) }}</span>
                 </div>
                 
                 <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                   <div class="flex items-center gap-2">
-                    <span class="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700">#{{ sub.id }}</span>
+                    <span class="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700">#{{ sub.submission_id }}</span>
                     <span>{{ sub.isRead ? '已读' : '新状态' }}</span>
                   </div>
                   <!-- Penalty Badge -->
@@ -198,6 +198,7 @@ import {
   createSinglePlayerRoom,
   getSinglePlayerRoomInfo,
   type SinglePlayerRoomInfo,
+  type RoomSubmissionRecord
 } from '../api/singlePlayer'
 
 const route = useRoute()
@@ -214,14 +215,33 @@ let timerInterval: number | null = null
 let ws: WebSocket | null = null
 
 // Submissions List
-interface Submission {
-  id: number
-  verdict: string
-  time: number // timestamp
+interface Submission extends RoomSubmissionRecord {
   isRead: boolean
 }
 const submissions = ref<Submission[]>([])
-const submissionIdCounter = ref(1)
+
+const updateSubmissions = (newRecords: RoomSubmissionRecord[] | undefined) => {
+  if (!newRecords) return
+  
+  const isInitialLoad = submissions.value.length === 0
+  const readStatus = new Map<number, boolean>()
+  submissions.value.forEach(s => {
+    readStatus.set(s.submission_id, s.isRead)
+  })
+
+  const mapped = newRecords.map(r => ({
+    ...r,
+    isRead: readStatus.has(r.submission_id) ? readStatus.get(r.submission_id)! : (isInitialLoad ? true : false)
+  })).reverse()
+
+  submissions.value = mapped
+}
+
+watch(() => room.value, (newRoom) => {
+  if (newRoom?.submissions) {
+    updateSubmissions(newRoom.submissions)
+  }
+}, { deep: true })
 
 // Computed
 const ratingDiff = computed(() => {
@@ -351,7 +371,6 @@ const handleCreateRoom = async () => {
     connectWs()
     startTimer()
     submissions.value = []
-    submissionIdCounter.value = 1
     showSummary.value = false
   } catch (error) {
     console.error(error)
@@ -438,7 +457,7 @@ const getVerdictColor = (verdict: string) => {
 
 // Submissions & Status
 const markAsRead = (id: number) => {
-  const sub = submissions.value.find(s => s.id === id)
+  const sub = submissions.value.find(s => s.submission_id === id)
   if (sub && !sub.isRead) {
     sub.isRead = true
   }
@@ -486,27 +505,8 @@ const connectWs = () => {
         // Handle Room Update
         if (data.type === 'single_room_update' && data.data?.room) {
           room.value = data.data.room
-          
-          // Handle new submission verdict
-          const newVerdict = data.data.last_verdict
-          if (newVerdict) {
-            // Add to submissions list
-            submissions.value.unshift({
-              id: submissionIdCounter.value++,
-              verdict: newVerdict,
-              time: Date.now(),
-              isRead: false
-            })
-          }
-          
-          // Only update user rating if room is finished or rating_after is valid
-          if (room.value?.status !== 0 && room.value?.rating_after) {
-            updateUserRating(room.value.rating_after)
-          }
-        }
-        
-        // Handle Room Finish
-        if (data.type === 'single_room_finish' && data.data?.room) {
+          // Submissions are handled by watcher on room.value
+        } else if (data.type === 'single_room_finish' && data.data?.room) {
           room.value = data.data.room
           stopTimer()
           if (room.value?.rating_after) {
