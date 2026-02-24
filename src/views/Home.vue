@@ -1,7 +1,8 @@
 <template>
   <div class="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
     <div class="mt-8">
-      <button 
+      <button
+        @click="handleSinglePlayer"
         class="
           group relative flex items-center justify-center gap-4
           px-20 py-10
@@ -30,5 +31,11 @@
 </template>
 
 <script setup lang="ts">
-// Logic here
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+const handleSinglePlayer = () => {
+  router.push('/single-player')
+}
 </script>
