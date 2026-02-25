@@ -90,16 +90,26 @@
               <div v-if="message.type === 'system'" class="text-xs text-gray-400 dark:text-gray-500">
                 {{ message.content }}
               </div>
-              <div v-else class="max-w-[70%]">
+              <div
+                v-else
+                class="max-w-[70%] w-fit flex flex-col"
+                :class="isSelf(message.userId) ? 'ml-auto items-end' : 'items-start'"
+              >
                 <div
                   class="text-xs mb-1 flex items-center gap-2"
                   :class="isSelf(message.userId) ? 'justify-end text-indigo-100/90' : 'justify-start text-gray-500 dark:text-gray-300'"
                 >
-                  <span>{{ getMessageUserName(message) }}</span>
-                  <span>{{ formatTime(message.time) }}</span>
+                  <template v-if="isSelf(message.userId)">
+                    <span>{{ formatTime(message.time) }}</span>
+                    <span>{{ getMessageUserName(message) }}</span>
+                  </template>
+                  <template v-else>
+                    <span>{{ getMessageUserName(message) }}</span>
+                    <span>{{ formatTime(message.time) }}</span>
+                  </template>
                 </div>
                 <div
-                  class="px-4 py-3 rounded-2xl shadow-sm"
+                  class="px-4 py-3 rounded-2xl shadow-sm w-fit max-w-full"
                   :class="isSelf(message.userId)
                     ? 'bg-indigo-600 text-white rounded-br-md'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-bl-md'"
