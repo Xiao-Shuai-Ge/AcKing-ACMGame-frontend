@@ -64,7 +64,7 @@
               </div>
               <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 <span v-if="problem.solved">
-                  已通过 · {{ getUserName(problem.solved_by) }} · 罚时 {{ getProblemPenaltyMinutes(problem) }}分
+                  已通过 · {{ getUserName(problem.solved_by) }} · 罚时 {{ getProblemPenaltyMinutes(problem) }}
                 </span>
                 <span v-else>未通过</span>
               </div>
@@ -77,7 +77,7 @@
 
         <div class="lg:col-span-6 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 h-[calc(100vh-240px)] flex flex-col">
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white">聊天室</h3>
-          <div class="mt-4 flex-1 overflow-y-auto space-y-4">
+          <div ref="chatScrollRef" class="mt-4 flex-1 overflow-y-auto space-y-4" @scroll="handleChatScroll">
             <div v-if="messages.length === 0" class="text-sm text-gray-400 dark:text-gray-500 text-center mt-10">
               暂无消息
             </div>
@@ -188,7 +188,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { API_BASE_URL } from '../api/request'
@@ -231,6 +231,8 @@ const messages = ref<RoomMessage[]>([])
 const submissions = ref<SubmissionItem[]>([])
 let messageSeq = 1
 let submissionSeq = 1
+const chatScrollRef = ref<HTMLElement | null>(null)
+const chatAtBottom = ref(true)
 
 const addSystemMessage = (content: string) => {
   messages.value.push({
@@ -255,6 +257,19 @@ const addChatMessage = (payload: { content: string; userId: string; username: st
     userId: payload.userId,
     username: payload.username,
   })
+}
+
+const handleChatScroll = () => {
+  const el = chatScrollRef.value
+  if (!el) return
+  const distance = el.scrollHeight - el.scrollTop - el.clientHeight
+  chatAtBottom.value = distance <= 24
+}
+
+const scrollChatToBottom = (behavior: ScrollBehavior = 'auto') => {
+  const el = chatScrollRef.value
+  if (!el) return
+  el.scrollTo({ top: el.scrollHeight, behavior })
 }
 
 const addSubmission = (payload: { problemId: string; verdict: string; userId: string }) => {
@@ -543,10 +558,30 @@ onMounted(async () => {
   if (room.value) {
     connectWs()
   }
+  await nextTick()
+  scrollChatToBottom()
   countdownTimer = window.setInterval(() => {
     updateCountdown()
   }, 1000)
 })
+
+watch(
+  () => messages.value.length,
+  async () => {
+    if (!chatAtBottom.value) return
+    await nextTick()
+    scrollChatToBottom('smooth')
+  }
+)
+
+watch(
+  () => chatInput.value,
+  async () => {
+    if (!chatAtBottom.value) return
+    await nextTick()
+    scrollChatToBottom()
+  }
+)
 
 onBeforeUnmount(() => {
   if (ws) {
