@@ -22,6 +22,14 @@ export interface TeamRoomProblemInfo {
   solved_at: number
 }
 
+export interface TeamRoomSubmissionInfo {
+  submission_id: string
+  problem_id: string
+  user_id: string
+  verdict: string
+  submit_time: number
+}
+
 export interface TeamRoomInfo {
   room_id: string
   mode: string
@@ -30,6 +38,7 @@ export interface TeamRoomInfo {
   end_time: number
   players: TeamRoomPlayerInfo[]
   problems: TeamRoomProblemInfo[]
+  submissions?: TeamRoomSubmissionInfo[]
   score: number
   duration: number
 }

@@ -12,6 +12,17 @@
           <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
             模式 {{ room.mode }} · {{ room.status === 0 ? '进行中' : '已结束' }} · 题目 {{ room.problems.length }}
           </p>
+          <div class="mt-3 flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+            <span class="px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700/60">
+              倒计时 {{ getCountdownText() }}
+            </span>
+            <span class="px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700/60">
+              已解 {{ getSolvedCount() }}/{{ room.problems.length }}
+            </span>
+            <span class="px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700/60">
+              总罚时 {{ getTotalPenaltyMinutes() }}分
+            </span>
+          </div>
         </div>
         <div class="flex items-center gap-3">
           <span
@@ -53,7 +64,7 @@
               </div>
               <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 <span v-if="problem.solved">
-                  已通过 · {{ getUserName(problem.solved_by) }} · {{ formatDuration(problem.solved_at) }}
+                  已通过 · {{ getUserName(problem.solved_by) }} · 罚时 {{ getProblemPenaltyMinutes(problem) }}分
                 </span>
                 <span v-else>未通过</span>
               </div>
@@ -81,10 +92,11 @@
               </div>
               <div v-else class="max-w-[70%]">
                 <div
-                  class="text-xs mb-1"
-                  :class="isSelf(message.userId) ? 'text-right text-indigo-100/90' : 'text-left text-gray-500 dark:text-gray-300'"
+                  class="text-xs mb-1 flex items-center gap-2"
+                  :class="isSelf(message.userId) ? 'justify-end text-indigo-100/90' : 'justify-start text-gray-500 dark:text-gray-300'"
                 >
-                  {{ getMessageUserName(message) }}
+                  <span>{{ getMessageUserName(message) }}</span>
+                  <span>{{ formatTime(message.time) }}</span>
                 </div>
                 <div
                   class="px-4 py-3 rounded-2xl shadow-sm"
@@ -93,9 +105,6 @@
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-bl-md'"
                 >
                   <div class="text-sm whitespace-pre-line break-words">{{ message.content }}</div>
-                  <div class="text-[11px] mt-1 text-gray-200/80 dark:text-gray-200/70" :class="isSelf(message.userId) ? 'text-indigo-100' : 'text-gray-400'">
-                    {{ formatTime(message.time) }}
-                  </div>
                 </div>
               </div>
             </div>
@@ -126,12 +135,14 @@
                 :key="player.user_id"
                 class="flex items-center justify-between text-sm"
               >
-                <button
+                <a
                   class="text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
-                  @click="goToProfile(player.user_id)"
+                  :href="getProfileLink(player.user_id)"
+                  target="_blank"
+                  rel="noopener"
                 >
                   {{ player.username }}
-                </button>
+                </a>
               </div>
               <div v-if="room.players.length === 0" class="text-sm text-gray-400 dark:text-gray-500">
                 暂无成员
@@ -172,7 +183,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { API_BASE_URL } from '../api/request'
 import { getUserInfo } from '../api/auth'
-import { getTeamRoomInfo, type TeamRoomInfo } from '../api/teamRoom'
+import { getTeamRoomInfo, type TeamRoomInfo, type TeamRoomProblemInfo, type TeamRoomSubmissionInfo } from '../api/teamRoom'
 import { useUserStore } from '../store/user'
 
 const route = useRoute()
@@ -185,6 +196,8 @@ let ws: WebSocket | null = null
 const chatInput = ref('')
 const userNameMap = ref<Record<string, string>>({})
 const fetchingUserIds = new Set<string>()
+const remainingSeconds = ref(0)
+let countdownTimer: number | null = null
 
 interface RoomMessage {
   id: number
@@ -253,6 +266,8 @@ const fetchRoom = async () => {
     const res = await getTeamRoomInfo(roomId)
     room.value = res.room
     syncUserNamesFromRoom(res.room)
+    resetSubmissionsFromRoom(res.room.submissions)
+    updateCountdown()
   } catch (error) {
     console.error(error)
     ElMessage.error('房间不存在或已失效')
@@ -299,6 +314,7 @@ const connectWs = () => {
         if (data.type === 'team_room_update' && data.data?.room) {
           room.value = data.data.room
           syncUserNamesFromRoom(data.data.room)
+          updateCountdown()
           if (data.data?.user_id && data.data?.problem_id && data.data?.last_verdict) {
             void ensureUserName(String(data.data.user_id))
             addSubmission({
@@ -311,6 +327,7 @@ const connectWs = () => {
         } else if (data.type === 'team_room_member_update' && data.data?.room) {
           room.value = data.data.room
           syncUserNamesFromRoom(data.data.room)
+          updateCountdown()
           const action = data.data?.action === 'leave' ? '离开' : '加入'
           void ensureUserName(String(data.data?.user_id || ''))
           const userName = getUserName(String(data.data?.user_id))
@@ -318,6 +335,7 @@ const connectWs = () => {
         } else if (data.type === 'team_room_finish' && data.data?.room) {
           room.value = data.data.room
           syncUserNamesFromRoom(data.data.room)
+          updateCountdown()
           addSystemMessage('房间已结束')
         } else if (data.type === 'team_room_chat' && data.data?.content) {
           const senderId = String(data.data.user_id || '')
@@ -343,9 +361,9 @@ const backToList = () => {
   router.push({ name: 'team-room-list' })
 }
 
-const goToProfile = (userId: string) => {
-  if (!userId) return
-  router.push({ name: 'user-profile', params: { id: userId } })
+const getProfileLink = (userId: string) => {
+  if (!userId) return '#'
+  return router.resolve({ name: 'user-profile', params: { id: userId } }).href
 }
 
 const isSelf = (userId: string) => {
@@ -398,6 +416,77 @@ const getMessageUserName = (message: RoomMessage) => {
   return message.username || getUserName(message.userId)
 }
 
+const resetSubmissionsFromRoom = (items?: TeamRoomSubmissionInfo[]) => {
+  submissions.value = []
+  submissionSeq = 1
+  if (!items || items.length === 0) return
+  const sorted = [...items].sort((a, b) => b.submit_time - a.submit_time)
+  submissions.value = sorted.map((item) => {
+    void ensureUserName(item.user_id)
+    return {
+      id: submissionSeq++,
+      problemId: item.problem_id,
+      verdict: item.verdict,
+      userId: item.user_id,
+      username: getUserName(item.user_id),
+      submitTime: item.submit_time * 1000,
+    }
+  })
+}
+
+const getProblemPenaltyMinutes = (problem: TeamRoomProblemInfo) => {
+  if (!problem.solved) return 0
+  const minutes = Math.floor(problem.solved_at / 60)
+  return minutes + (problem.penalty || 0)
+}
+
+const getSolvedCount = () => {
+  if (!room.value) return 0
+  return room.value.problems.filter(p => p.solved).length
+}
+
+const getTotalPenaltyMinutes = () => {
+  if (!room.value) return 0
+  return room.value.problems.reduce((total, problem) => {
+    if (!problem.solved) return total
+    return total + getProblemPenaltyMinutes(problem)
+  }, 0)
+}
+
+const updateCountdown = () => {
+  if (!room.value) return
+  if (room.value.status !== 0) {
+    remainingSeconds.value = 0
+    return
+  }
+  if (room.value.duration <= 0) {
+    remainingSeconds.value = 0
+    return
+  }
+  const start = new Date(room.value.created_at).getTime()
+  if (!start || Number.isNaN(start)) {
+    remainingSeconds.value = 0
+    return
+  }
+  const end = start + room.value.duration * 1000
+  const now = Date.now()
+  remainingSeconds.value = Math.max(0, Math.floor((end - now) / 1000))
+}
+
+const getCountdownText = () => {
+  if (!room.value) return '--'
+  if (room.value.status !== 0) return '已结束'
+  if (room.value.duration <= 0) return '不限时'
+  const total = Math.max(0, remainingSeconds.value)
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const seconds = total % 60
+  const hh = String(hours).padStart(2, '0')
+  const mm = String(minutes).padStart(2, '0')
+  const ss = String(seconds).padStart(2, '0')
+  return `${hh}:${mm}:${ss}`
+}
+
 const getDifficultyColor = (difficulty: number) => {
   if (!difficulty) return 'text-gray-500 dark:text-gray-400'
   if (difficulty < 1200) return 'text-gray-500 dark:text-gray-400'
@@ -415,13 +504,6 @@ const getVerdictColor = (verdict: string) => {
   if (v.includes('wrong') || v === 'wa') return 'text-red-600 dark:text-red-400'
   if (v.includes('time') || v === 'tle') return 'text-yellow-600 dark:text-yellow-400'
   return 'text-gray-600 dark:text-gray-400'
-}
-
-const formatDuration = (seconds: number) => {
-  const total = Math.max(0, Math.floor(seconds))
-  const minutes = Math.floor(total / 60)
-  const secs = total % 60
-  return `${minutes}分${secs}秒`
 }
 
 const formatTime = (timestamp: number) => {
@@ -451,12 +533,19 @@ onMounted(async () => {
   if (room.value) {
     connectWs()
   }
+  countdownTimer = window.setInterval(() => {
+    updateCountdown()
+  }, 1000)
 })
 
 onBeforeUnmount(() => {
   if (ws) {
     ws.close()
     ws = null
+  }
+  if (countdownTimer) {
+    window.clearInterval(countdownTimer)
+    countdownTimer = null
   }
 })
 </script>
