@@ -33,19 +33,20 @@
         <div class="lg:col-span-3 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 h-[calc(100vh-240px)] overflow-y-auto">
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white">题目列表</h3>
           <div class="mt-4 space-y-3">
-            <div
+            <a
               v-for="problem in room.problems"
               :key="problem.problem_id"
-              class="rounded-xl border border-gray-100 dark:border-gray-700 p-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition"
+              :href="problem.problem_url"
+              target="_blank"
+              class="block rounded-xl border p-3 transition"
+              :class="problem.solved
+                ? 'border-green-200 bg-green-50 hover:bg-green-100 dark:border-green-500/30 dark:bg-green-500/10 dark:hover:bg-green-500/20'
+                : 'border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/40'"
             >
               <div class="flex items-center justify-between">
-                <a
-                  :href="problem.problem_url"
-                  target="_blank"
-                  class="font-mono text-indigo-600 dark:text-indigo-400 hover:underline"
-                >
+                <span class="font-mono text-indigo-600 dark:text-indigo-400">
                   {{ problem.problem_id }}
-                </a>
+                </span>
                 <span :class="getDifficultyColor(problem.difficulty)" class="font-semibold">
                   {{ problem.difficulty }}
                 </span>
@@ -56,7 +57,7 @@
                 </span>
                 <span v-else>未通过</span>
               </div>
-            </div>
+            </a>
             <div v-if="room.problems.length === 0" class="text-sm text-gray-400 dark:text-gray-500">
               暂无题目
             </div>
@@ -65,21 +66,54 @@
 
         <div class="lg:col-span-6 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 h-[calc(100vh-240px)] flex flex-col">
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white">聊天室</h3>
-          <div class="mt-4 flex-1 overflow-y-auto space-y-3">
-            <div v-if="events.length === 0" class="text-sm text-gray-400 dark:text-gray-500 text-center mt-10">
+          <div class="mt-4 flex-1 overflow-y-auto space-y-4">
+            <div v-if="messages.length === 0" class="text-sm text-gray-400 dark:text-gray-500 text-center mt-10">
               暂无消息
             </div>
             <div
-              v-for="event in events"
-              :key="event.id"
-              class="px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700"
+              v-for="message in messages"
+              :key="message.id"
+              class="flex"
+              :class="message.type === 'system' ? 'justify-center' : (isSelf(message.userId) ? 'justify-end' : 'justify-start')"
             >
-              <div class="text-sm text-gray-700 dark:text-gray-200">{{ event.message }}</div>
-              <div class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ formatTime(event.time) }}</div>
+              <div v-if="message.type === 'system'" class="text-xs text-gray-400 dark:text-gray-500">
+                {{ message.content }}
+              </div>
+              <div v-else class="max-w-[70%]">
+                <div
+                  class="text-xs mb-1"
+                  :class="isSelf(message.userId) ? 'text-right text-indigo-100/90' : 'text-left text-gray-500 dark:text-gray-300'"
+                >
+                  {{ getMessageUserName(message) }}
+                </div>
+                <div
+                  class="px-4 py-3 rounded-2xl shadow-sm"
+                  :class="isSelf(message.userId)
+                    ? 'bg-indigo-600 text-white rounded-br-md'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-bl-md'"
+                >
+                  <div class="text-sm whitespace-pre-line break-words">{{ message.content }}</div>
+                  <div class="text-[11px] mt-1 text-gray-200/80 dark:text-gray-200/70" :class="isSelf(message.userId) ? 'text-indigo-100' : 'text-gray-400'">
+                    {{ formatTime(message.time) }}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="pt-4 text-xs text-gray-400 dark:text-gray-500">
-            当前仅展示系统消息与提交动态
+          <div class="pt-4 flex items-center gap-3">
+            <input
+              v-model="chatInput"
+              @keydown.enter.prevent="sendChat"
+              type="text"
+              placeholder="输入消息，回车发送"
+              class="flex-1 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <button
+              @click="sendChat"
+              class="px-5 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 active:scale-95 transition"
+            >
+              发送
+            </button>
           </div>
         </div>
 
@@ -92,8 +126,12 @@
                 :key="player.user_id"
                 class="flex items-center justify-between text-sm"
               >
-                <span class="text-gray-700 dark:text-gray-200">{{ player.username }}</span>
-                <span class="text-xs text-gray-400 dark:text-gray-500">{{ formatTime(player.join_at * 1000) }}</span>
+                <button
+                  class="text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                  @click="goToProfile(player.user_id)"
+                >
+                  {{ player.username }}
+                </button>
               </div>
               <div v-if="room.players.length === 0" class="text-sm text-gray-400 dark:text-gray-500">
                 暂无成员
@@ -133,19 +171,28 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { API_BASE_URL } from '../api/request'
+import { getUserInfo } from '../api/auth'
 import { getTeamRoomInfo, type TeamRoomInfo } from '../api/teamRoom'
+import { useUserStore } from '../store/user'
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 const room = ref<TeamRoomInfo | null>(null)
 const loading = ref(false)
 const wsConnected = ref(false)
 let ws: WebSocket | null = null
+const chatInput = ref('')
+const userNameMap = ref<Record<string, string>>({})
+const fetchingUserIds = new Set<string>()
 
-interface RoomEvent {
+interface RoomMessage {
   id: number
-  message: string
+  type: 'system' | 'chat'
+  content: string
   time: number
+  userId: string
+  username: string
 }
 
 interface SubmissionItem {
@@ -157,16 +204,33 @@ interface SubmissionItem {
   submitTime: number
 }
 
-const events = ref<RoomEvent[]>([])
+const messages = ref<RoomMessage[]>([])
 const submissions = ref<SubmissionItem[]>([])
-let eventSeq = 1
+let messageSeq = 1
 let submissionSeq = 1
 
-const addEvent = (message: string) => {
-  events.value.push({
-    id: eventSeq++,
-    message,
+const addSystemMessage = (content: string) => {
+  messages.value.push({
+    id: messageSeq++,
+    type: 'system',
+    content,
     time: Date.now(),
+    userId: '',
+    username: '',
+  })
+}
+
+const addChatMessage = (payload: { content: string; userId: string; username: string; time: number }) => {
+  if (payload.userId) {
+    setUserName(payload.userId, payload.username)
+  }
+  messages.value.push({
+    id: messageSeq++,
+    type: 'chat',
+    content: payload.content,
+    time: payload.time,
+    userId: payload.userId,
+    username: payload.username,
   })
 }
 
@@ -188,6 +252,7 @@ const fetchRoom = async () => {
   try {
     const res = await getTeamRoomInfo(roomId)
     room.value = res.room
+    syncUserNamesFromRoom(res.room)
   } catch (error) {
     console.error(error)
     ElMessage.error('房间不存在或已失效')
@@ -220,7 +285,7 @@ const connectWs = () => {
     ws = new WebSocket(buildWsUrl())
     ws.onopen = () => {
       wsConnected.value = true
-      addEvent('已连接到房间')
+      addSystemMessage('已连接到房间')
     }
     ws.onclose = () => {
       wsConnected.value = false
@@ -233,22 +298,37 @@ const connectWs = () => {
         const data = JSON.parse(event.data || '{}')
         if (data.type === 'team_room_update' && data.data?.room) {
           room.value = data.data.room
+          syncUserNamesFromRoom(data.data.room)
           if (data.data?.user_id && data.data?.problem_id && data.data?.last_verdict) {
+            void ensureUserName(String(data.data.user_id))
             addSubmission({
               problemId: data.data.problem_id,
               verdict: data.data.last_verdict,
               userId: String(data.data.user_id),
             })
-            addEvent(`${getUserName(String(data.data.user_id))} 提交 ${data.data.problem_id} - ${data.data.last_verdict}`)
+            addSystemMessage(`${getUserName(String(data.data.user_id))} 提交 ${data.data.problem_id} - ${data.data.last_verdict}`)
           }
         } else if (data.type === 'team_room_member_update' && data.data?.room) {
           room.value = data.data.room
+          syncUserNamesFromRoom(data.data.room)
           const action = data.data?.action === 'leave' ? '离开' : '加入'
+          void ensureUserName(String(data.data?.user_id || ''))
           const userName = getUserName(String(data.data?.user_id))
-          addEvent(`${userName} ${action}了房间`)
+          addSystemMessage(`${userName} ${action}了房间`)
         } else if (data.type === 'team_room_finish' && data.data?.room) {
           room.value = data.data.room
-          addEvent('房间已结束')
+          syncUserNamesFromRoom(data.data.room)
+          addSystemMessage('房间已结束')
+        } else if (data.type === 'team_room_chat' && data.data?.content) {
+          const senderId = String(data.data.user_id || '')
+          const senderName = String(data.data.username || getUserName(senderId))
+          void ensureUserName(senderId)
+          addChatMessage({
+            content: String(data.data.content),
+            userId: senderId,
+            username: senderName,
+            time: Number(data.data.ts) * 1000 || Date.now(),
+          })
         }
       } catch (error) {
         console.error('WS Error', error)
@@ -263,9 +343,59 @@ const backToList = () => {
   router.push({ name: 'team-room-list' })
 }
 
+const goToProfile = (userId: string) => {
+  if (!userId) return
+  router.push({ name: 'user-profile', params: { id: userId } })
+}
+
+const isSelf = (userId: string) => {
+  if (!userId) return false
+  return userStore.userInfo?.id === userId
+}
+
+const setUserName = (userId: string, username: string) => {
+  if (!userId || !username) return
+  userNameMap.value[userId] = username
+}
+
+const syncUserNamesFromRoom = (roomInfo?: TeamRoomInfo | null) => {
+  const source = roomInfo || room.value
+  if (!source?.players?.length) return
+  source.players.forEach((player) => {
+    if (!player.user_id || !player.username) return
+    userNameMap.value[player.user_id] = player.username
+  })
+}
+
+const ensureUserName = async (userId: string) => {
+  if (!userId || userNameMap.value[userId]) return
+  if (fetchingUserIds.has(userId)) return
+  fetchingUserIds.add(userId)
+  try {
+    const res = await getUserInfo(userId)
+    setUserName(userId, res.username || userId)
+  } catch (error) {
+    console.error(error)
+  } finally {
+    fetchingUserIds.delete(userId)
+  }
+}
+
 const getUserName = (userId: string) => {
+  if (!userId) return ''
+  if (userNameMap.value[userId]) return userNameMap.value[userId]
   const current = room.value?.players?.find(p => p.user_id === userId)
-  return current?.username || userId
+  if (current?.username) {
+    setUserName(userId, current.username)
+    return current.username
+  }
+  void ensureUserName(userId)
+  return userId
+}
+
+const getMessageUserName = (message: RoomMessage) => {
+  if (!message.userId) return ''
+  return message.username || getUserName(message.userId)
 }
 
 const getDifficultyColor = (difficulty: number) => {
@@ -297,6 +427,23 @@ const formatDuration = (seconds: number) => {
 const formatTime = (timestamp: number) => {
   const date = new Date(timestamp)
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
+
+const sendChat = () => {
+  const content = chatInput.value.trim()
+  if (!content || !ws || !wsConnected.value || !room.value?.room_id) {
+    return
+  }
+  ws.send(
+    JSON.stringify({
+      type: 'team_room_chat',
+      data: {
+        room_id: room.value.room_id,
+        content,
+      },
+    })
+  )
+  chatInput.value = ''
 }
 
 onMounted(async () => {
