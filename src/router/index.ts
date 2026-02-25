@@ -3,6 +3,8 @@ import Home from '../views/Home.vue'
 import LoginView from '../views/LoginView.vue'
 import RegisterView from '../views/RegisterView.vue'
 import SinglePlayerView from '../views/SinglePlayerView.vue'
+import TeamRoomListView from '../views/TeamRoomListView.vue'
+import TeamRoomView from '../views/TeamRoomView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -31,6 +33,16 @@ const router = createRouter({
       path: '/single-player/:roomId?',
       name: 'single-player',
       component: SinglePlayerView,
+    },
+    {
+      path: '/team-room',
+      name: 'team-room-list',
+      component: TeamRoomListView,
+    },
+    {
+      path: '/team-room/:roomId',
+      name: 'team-room',
+      component: TeamRoomView,
     },
   ],
 })
